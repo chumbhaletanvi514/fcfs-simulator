@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FCFS Performance Analyzer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: #fbfbfd;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Clean subtle transitions */
+    .gantt-bar {
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s ease;
+    }
+    .gantt-bar:hover {
+      transform: translateY(-2px);
+    }
+
+    /* Remove number spinner arrows for clean input look */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 antialiased flex flex-col justify-between selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- Minimalist Title Header -->
+  <header class="bg-white border-b border-slate-200/80 sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-950 flex items-center gap-2">
+          FCFS Performance Analyzer
+        </h1>
+        <p class="text-xs text-slate-500 mt-0.5">First-Come, First-Served CPU scheduling simulation & metric breakdown</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="example-btn" class="px-3 py-1.5 rounded-md bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition">
+          Load Example
+        </button>
+        <button id="reset-btn" class="px-3 py-1.5 rounded-md bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-medium border border-slate-200 hover:border-rose-200 transition">
+          Clear
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Space -->
+  <main class="max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 flex-1">
+
+    <!-- 1. Process Input Section -->
+    <section class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-900">Processes</h2>
+          <p class="text-xs text-slate-500">Add or edit Arrival Time (AT) and Burst Time (BT). Everything updates live.</p>
+        </div>
+        <button id="add-process-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition active:scale-95">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Process
+        </button>
+      </div>
+
+      <!-- Compact Process Queue Table -->
+      <div class="border border-slate-200/80 rounded-lg overflow-x-auto bg-slate-50/40">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200/80">
+            <tr>
+              <th class="py-2.5 px-4 w-32">Process ID</th>
+              <th class="py-2.5 px-4">Arrival Time (AT)</th>
+              <th class="py-2.5 px-4">Burst Time (BT)</th>
+              <th class="py-2.5 px-4 w-16 text-center">Delete</th>
+            </tr>
+          </thead>
+          <tbody id="process-table-body" class="divide-y divide-slate-100 font-mono">
+            <!-- Injected by script -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2. Vibrant Gantt Chart -->
+    <section class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-slate-900">Gantt Chart</h2>
+        <div id="gantt-legend" class="flex flex-wrap items-center gap-2 text-xs">
+          <!-- Colorful legend labels -->
+        </div>
+      </div>
+
+      <!-- Gantt Canvas Container -->
+      <div class="bg-slate-50/80 border border-slate-200 rounded-lg p-4 overflow-x-auto">
+        <!-- Colored Process Bars -->
+        <div id="gantt-bars" class="flex items-center w-full min-w-[520px] h-12 rounded-lg bg-white border border-slate-200 overflow-hidden shadow-inner">
+          <!-- Bars generated via JS -->
+        </div>
+
+        <!-- Precise Timeline Ticks -->
+        <div id="gantt-timeline" class="relative w-full min-w-[520px] h-6 mt-2 font-mono text-[11px] text-slate-500 select-none">
+          <!-- Time points generated via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Key Calculation Cards (AWT & ATAT) -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Average Waiting Time Card -->
+      <div class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Average Waiting Time</span>
+            <span class="text-[11px] font-mono text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">AWT</span>
+          </div>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span id="metric-awt" class="text-3xl sm:text-4xl font-bold font-mono tracking-tight text-slate-950">0.00</span>
+            <span class="text-xs text-slate-500 font-medium">units</span>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <span class="font-mono text-[11px]">Formula: &Sigma; WT / N</span>
+          <span id="awt-breakdown" class="font-mono text-slate-700 font-medium">0 / 0</span>
+        </div>
+      </div>
+
+      <!-- Average Turnaround Time Card -->
+      <div class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Average Turnaround Time</span>
+            <span class="text-[11px] font-mono text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">ATAT</span>
+          </div>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span id="metric-atat" class="text-3xl sm:text-4xl font-bold font-mono tracking-tight text-slate-950">0.00</span>
+            <span class="text-xs text-slate-500 font-medium">units</span>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <span class="font-mono text-[11px]">Formula: &Sigma; TAT / N</span>
+          <span id="atat-breakdown" class="font-mono text-slate-700 font-medium">0 / 0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Compact Results Breakdown Table -->
+    <section class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-slate-900">Calculated Process Breakdown</h2>
+        <span class="text-[11px] font-mono text-slate-400">TAT = CT &minus; AT &nbsp;|&nbsp; WT = TAT &minus; BT</span>
+      </div>
+
+      <div class="border border-slate-200/80 rounded-lg overflow-x-auto">
+        <table class="w-full text-xs font-mono text-left">
+          <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200/80">
+            <tr>
+              <th class="py-2 px-4 font-sans">Process</th>
+              <th class="py-2 px-4 text-right">Arrival Time</th>
+              <th class="py-2 px-4 text-right">Burst Time</th>
+              <th class="py-2 px-4 text-right">Completion Time</th>
+              <th class="py-2 px-4 text-right text-emerald-700 font-semibold">Turnaround Time</th>
+              <th class="py-2 px-4 text-right text-indigo-700 font-bold">Waiting Time</th>
+            </tr>
+          </thead>
+          <tbody id="results-table-body" class="divide-y divide-slate-100">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Clean footer -->
+  <footer class="border-t border-slate-200/80 bg-white py-3 text-center text-xs text-slate-400">
+    FCFS Performance Analyzer &bull; Minimalist Single-File Simulator
+  </footer>
+
+  <script>
+    // Vivid, clean color palette for the Gantt Chart
+    const PALETTE = [
+      { bg: '#3b82f6', text: '#ffffff' }, // Blue
+      { bg: '#10b981', text: '#ffffff' }, // Emerald
+      { bg: '#f97316', text: '#ffffff' }, // Orange
+      { bg: '#8b5cf6', text: '#ffffff' }, // Violet
+      { bg: '#ec4899', text: '#ffffff' }, // Pink
+      { bg: '#06b6d4', text: '#ffffff' }, // Cyan
+      { bg: '#eab308', text: '#1e293b' }, // Amber
+      { bg: '#14b8a6', text: '#ffffff' }, // Teal
+      { bg: '#6366f1', text: '#ffffff' }, // Indigo
+      { bg: '#f43f5e', text: '#ffffff' }  // Rose
+    ];
+
+    // Standard baseline dataset
+    const SAMPLE_PROCESSES = [
+      { id: 'P1', at: 0, bt: 4 },
+      { id: 'P2', at: 1, bt: 3 },
+      { id: 'P3', at: 2, bt: 1 },
+      { id: 'P4', at: 3, bt: 5 }
+    ];
+
+    let processes = JSON.parse(JSON.stringify(SAMPLE_PROCESSES));
+
+    // DOM references
+    const processTableBody = document.getElementById('process-table-body');
+    const resultsTableBody = document.getElementById('results-table-body');
+    const ganttBars = document.getElementById('gantt-bars');
+    const ganttTimeline = document.getElementById('gantt-timeline');
+    const ganttLegend = document.getElementById('gantt-legend');
+    const addProcessBtn = document.getElementById('add-process-btn');
+    const exampleBtn = document.getElementById('example-btn');
+    const resetBtn = document.getElementById('reset-btn');
+
+    const metricAwt = document.getElementById('metric-awt');
+    const metricAtat = document.getElementById('metric-atat');
+    const awtBreakdown = document.getElementById('awt-breakdown');
+    const atatBreakdown = document.getElementById('atat-breakdown');
+
+    // Render interactive input rows
+    function renderInputRows() {
+      processTableBody.innerHTML = '';
+
+      processes.forEach((proc, index) => {
+        const color = PALETTE[index % PALETTE.length];
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition';
+        tr.innerHTML = `
+          <td class="py-2 px-4 flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color.bg}"></span>
+            <input type="text" value="${proc.id}" class="w-16 px-2 py-1 bg-white border border-slate-200 rounded text-slate-800 text-xs font-semibold focus:border-slate-400 outline-none" data-idx="${index}" data-field="id">
+          </td>
+          <td class="py-2 px-4">
+            <input type="number" min="0" value="${proc.at}" class="w-20 px-2 py-1 bg-white border border-slate-200 rounded text-slate-800 text-xs text-right focus:border-slate-400 outline-none" data-idx="${index}" data-field="at">
+          </td>
+          <td class="py-2 px-4">
+            <input type="number" min="1" value="${proc.bt}" class="w-20 px-2 py-1 bg-white border border-slate-200 rounded text-slate-800 text-xs text-right focus:border-slate-400 outline-none" data-idx="${index}" data-field="bt">
+          </td>
+          <td class="py-2 px-4 text-center">
+            <button class="delete-btn text-slate-400 hover:text-rose-500 p-1 rounded transition" data-idx="${index}" title="Remove">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+            </button>
+          </td>
+        `;
+        processTableBody.appendChild(tr);
+      });
+
+      // Bind input events for live reactivity
+      processTableBody.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          const field = e.target.dataset.field;
+          if (field === 'id') {
+            processes[idx].id = e.target.value.trim() || `P${idx+1}`;
+          } else {
+            const val = parseInt(e.target.value);
+            processes[idx][field] = isNaN(val) ? 0 : Math.max(0, val);
+          }
+          runAnalyzer();
+        });
+      });
+
+      // Bind delete buttons
+      processTableBody.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.idx);
+          if (processes.length > 1) {
+            processes.splice(idx, 1);
+            renderInputRows();
+            runAnalyzer();
+          }
+        });
+      });
+
+      lucide.createIcons();
+    }
+
+    // Main FCFS Scheduling logic
+    function runAnalyzer() {
+      if (processes.length === 0) return;
+
+      // FCFS sorts by arrival time
+      const sorted = [...processes].map((p, originalIndex) => ({
+        ...p,
+        originalIndex: originalIndex
+      })).sort((a, b) => a.at - b.at);
+
+      let currentTime = 0;
+      let timeline = [];
+      let results = [];
+
+      sorted.forEach((p) => {
+        // If CPU is idle before process arrives
+        if (currentTime < p.at) {
+          timeline.push({
+            type: 'idle',
+            id: 'Idle',
+            start: currentTime,
+            end: p.at,
+            duration: p.at - currentTime,
+            bg: '#f1f5f9',
+            text: '#94a3b8'
+          });
+          currentTime = p.at;
+        }
+
+        const start = currentTime;
+        const completion = start + p.bt;
+        const tat = completion - p.at;
+        const wt = tat - p.bt;
+
+        const color = PALETTE[p.originalIndex % PALETTE.length];
+
+        timeline.push({
+          type: 'process',
+          id: p.id,
+          start: start,
+          end: completion,
+          duration: p.bt,
+          bg: color.bg,
+          text: color.text
+        });
+
+        results.push({
+          id: p.id,
+          at: p.at,
+          bt: p.bt,
+          ct: completion,
+          tat: tat,
+          wt: wt,
+          color: color.bg
+        });
+
+        currentTime = completion;
+      });
+
+      const totalTime = currentTime;
+      const totalWait = results.reduce((acc, r) => acc + r.wt, 0);
+      const totalTat = results.reduce((acc, r) => acc + r.tat, 0);
+      const count = results.length;
+
+      // Update Key Calculation Cards
+      metricAwt.innerText = (totalWait / count).toFixed(2);
+      metricAtat.innerText = (totalTat / count).toFixed(2);
+      awtBreakdown.innerText = `${totalWait} / ${count}`;
+      atatBreakdown.innerText = `${totalTat} / ${count}`;
+
+      // Render Visual Gantt Chart & Breakdown
+      renderGantt(timeline, totalTime);
+      renderResults(results);
+    }
+
+    // Render Colorful Gantt Chart
+    function renderGantt(timeline, totalTime) {
+      ganttBars.innerHTML = '';
+      ganttTimeline.innerHTML = '';
+      ganttLegend.innerHTML = '';
+
+      if (totalTime === 0) return;
+
+      // Gantt Blocks
+      timeline.forEach((block) => {
+        const percent = (block.duration / totalTime) * 100;
+        const div = document.createElement('div');
+        div.className = 'gantt-bar h-full flex items-center justify-center font-mono text-xs font-semibold select-none border-r border-white/30';
+        div.style.width = `${percent}%`;
+        div.style.backgroundColor = block.bg;
+        div.style.color = block.text;
+
+        if (block.type === 'idle') {
+          div.className += ' text-[10px] uppercase font-sans tracking-wider border-dashed border-slate-300';
+          div.innerText = 'Idle';
+        } else {
+          div.innerText = block.id;
+        }
+
+        ganttBars.appendChild(div);
+      });
+
+      // Axis Ticks
+      const points = [0];
+      timeline.forEach(b => points.push(b.end));
+      const uniquePoints = [...new Set(points)];
+
+      uniquePoints.forEach(pt => {
+        const leftPercent = (pt / totalTime) * 100;
+        const marker = document.createElement('div');
+        marker.className = 'absolute -translate-x-1/2 flex flex-col items-center';
+        marker.style.left = `${leftPercent}%`;
+        marker.innerHTML = `
+          <div class="w-px h-1.5 bg-slate-300"></div>
+          <span class="text-[10px] text-slate-500 mt-0.5">${pt}</span>
+        `;
+        ganttTimeline.appendChild(marker);
+      });
+
+      // Clean Legend
+      processes.forEach((p, idx) => {
+        const c = PALETTE[idx % PALETTE.length];
+        const span = document.createElement('span');
+        span.className = 'inline-flex items-center gap-1.5 font-mono text-slate-600';
+        span.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded-sm inline-block" style="background-color: ${c.bg}"></span>
+          ${p.id}
+        `;
+        ganttLegend.appendChild(span);
+      });
+    }
+
+    // Render Compact Table Results
+    function renderResults(results) {
+      resultsTableBody.innerHTML = '';
+      results.forEach((r) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50/70 transition';
+        tr.innerHTML = `
+          <td class="py-2 px-4 font-semibold text-slate-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full inline-block" style="background-color: ${r.color}"></span>
+            ${r.id}
+          </td>
+          <td class="py-2 px-4 text-right text-slate-600">${r.at}</td>
+          <td class="py-2 px-4 text-right text-slate-600">${r.bt}</td>
+          <td class="py-2 px-4 text-right text-slate-800">${r.ct}</td>
+          <td class="py-2 px-4 text-right text-emerald-700 font-semibold">${r.tat}</td>
+          <td class="py-2 px-4 text-right text-indigo-700 font-bold">${r.wt}</td>
+        `;
+        resultsTableBody.appendChild(tr);
+      });
+    }
+
+    // Action Buttons
+    addProcessBtn.addEventListener('click', () => {
+      const nextId = `P${processes.length + 1}`;
+      const last = processes[processes.length - 1];
+      const nextAt = last ? last.at + 1 : 0;
+      processes.push({ id: nextId, at: nextAt, bt: 3 });
+      renderInputRows();
+      runAnalyzer();
+    });
+
+    exampleBtn.addEventListener('click', () => {
+      processes = JSON.parse(JSON.stringify(SAMPLE_PROCESSES));
+      renderInputRows();
+      runAnalyzer();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      processes = [{ id: 'P1', at: 0, bt: 2 }];
+      renderInputRows();
+      runAnalyzer();
+    });
+
+    // Initialize on load
+    window.onload = () => {
+      renderInputRows();
+      runAnalyzer();
+    };
+  </script>
+</body>
+</html>
